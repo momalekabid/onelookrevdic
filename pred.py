@@ -2,9 +2,8 @@ import sys
 import gensim
 import json
 import numpy as np
-# given a file of predictions (jsons), for each entry take sgns and find top 1, 3, 10 similar words with 
-# loaded word2vec model
-# make sure to try except to avoid failures, fasttext could work to
+# given a file of predictions (jsons), for each entry look at predicted embedding and find top 1, 3, 10 similar words with 
+# loaded word2vec model OR using cosine_similarity on contextual embeddings. 
 
 model_path = "GoogleNews-vectors-negative300.bin" # target words were embedded using this model
 
