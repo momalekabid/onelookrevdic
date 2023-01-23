@@ -22,7 +22,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import tqdm
-import check_output
+# import check_output
 
 
 def get_parser(parser=argparse.ArgumentParser(description="score a submission")):
@@ -170,16 +170,15 @@ def rank_cosine_hill(preds, targets): # For Hill eval; the higher the better
             ]
 
 
-def eval_revdict(args, summary):
+def eval_revdict(fsubmission, freference, summary = None):
     # 1. read contents
     ## read data files
-    with open(args.submission_file, "r") as fp:
+    with open(fsubmission, "r") as fp:
         submission = sorted(json.load(fp), key=lambda r: r["id"])
-    with open(args.reference_file, "r") as fp:
+    with open(freference, "r") as fp:
         reference = sorted(json.load(fp), key=lambda r: r["id"])
     vec_archs = sorted(
-        set(submission[0].keys())
-        - {
+        set(submission[0].keys()) - {
             "id",
             "gloss",
             "word",
@@ -189,7 +188,8 @@ def eval_revdict(args, summary):
             "f_rnk",
             "counts",
             "polysemous",
-            "type"
+            "type",
+            "bert"
         }
     )
     ## define accumulators for rank-cosine
@@ -221,7 +221,7 @@ def eval_revdict(args, summary):
         arch: rank_cosine_hill(all_preds[arch], all_refs[arch]) for arch in vec_archs
     }
     # 3. display results
-    logger.debug(f"Submission {args.submission_file}, \n\tMSE: " + \
+    logger.debug(f"Submission {fsubmission}, \n\tMSE: " + \
         ", ".join(f"{a}={MSE_scores[a]}" for a in vec_archs) + \
         ", \n\tcosine: " + \
         ", ".join(f"{a}={cos_scores[a]}" for a in vec_archs) + \
@@ -230,50 +230,65 @@ def eval_revdict(args, summary):
         "."
     )
     all_archs = sorted(set(reference[0].keys()) - {"id", "gloss", "word", "pos"})
-    with open(args.output_file, "a") as ostr:
+    with open("score_output.txt", "a") as ostr:
         for arch in vec_archs:
             print(arch + ":", file=ostr)
-            print(f"MSE_{summary.lang}_{arch}:{MSE_scores[arch]}", file=ostr)
-            print(f"cos_{summary.lang}_{arch}:{cos_scores[arch]}", file=ostr)
-            print(f"rnk_{summary.lang}_{arch}:{rnk_scores[arch]}", file=ostr)
+            print(f"MSE_{summary}_{arch}:{MSE_scores[arch]}", file=ostr)
+            print(f"cos_{summary}_{arch}:{cos_scores[arch]}", file=ostr)
+            print(f"rnk_{summary}_{arch}:{rnk_scores[arch]}", file=ostr)
     return (
-        args.submission_file,
+        fsubmission,
         *[MSE_scores.get(a, None) for a in vec_archs],
         *[cos_scores.get(a, None) for a in vec_archs],
     )
 
 
-def main(args):
-    def do_score(submission_file, summary):
-        args.submission_file = submission_file
-        args.reference_file = (
-            args.reference_files_dir # subject to change
-            / f"{summary.lang}.trial.{summary.track}.json"
-            # / f"{summary.lang}.test.{summary.track}.json"
-            # / f"{summary.lang}.test.{summary.track}.complete.json"
-        )
-        eval_func = eval_revdict if summary.track == "revdict" else eval_defmod
-        eval_func(args, summary)
+# def main(args):
+#     def do_score(submission_file, summary):
+#         args.submission_file = submission_file
+#         args.reference_file = (
+#             args.reference_files_dir # subject to change
+#             / f"{summary.lang}.trial.{summary.track}.json"
+#             # / f"{summary.lang}.test.{summary.track}.json"
+#             # / f"{summary.lang}.test.{summary.track}.complete.json"
+#         )
+#         eval_func = eval_revdict if summary.track == "revdict" else eval_defmod
+#         eval_func(args, summary)
 
-    if args.output_file.is_dir():
-        args.output_file = args.output_file / "scores.txt"
-    # wipe file if exists
-    open(args.output_file, "w").close()
-    if args.submission_path.is_dir():
-        files = list(args.submission_path.glob("*.json"))
-        assert len(files) >= 1, "No data to score!"
-        summaries = [check_output.main(f) for f in files]
-        assert len(set(summaries)) == len(files), "Ensure files map to unique setups."
-        rd_cfg = [
-            (s.lang, a) for s in summaries if s.track == "revdict" for a in s.vec_archs
-        ]
-        assert len(set(rd_cfg)) == len(rd_cfg), "Ensure files map to unique setups."
-        for summary, submitted_file in zip(summaries, files):
-            do_score(submitted_file, summary)
-    else:
-        summary = check_output.main(args.submission_path)
-        do_score(args.submission_path, summary)
+#     if args.output_file.is_dir():
+#         args.output_file = args.output_file / "scores.txt"
+#     # wipe file if exists
+#     open(args.output_file, "w").close()
+#     if args.submission_path.is_dir():
+#         files = list(args.submission_path.glob("*.json"))
+#         assert len(files) >= 1, "No data to score!"
+#         summaries = [check_output.main(f) for f in files]
+#         assert len(set(summaries)) == len(files), "Ensure files map to unique setups."
+#         rd_cfg = [
+#             (s.lang, a) for s in summaries if s.track == "revdict" for a in s.vec_archs
+#         ]
+#         assert len(set(rd_cfg)) == len(rd_cfg), "Ensure files map to unique setups."
+#         for summary, submitted_file in zip(summaries, files):
+#             do_score(submitted_file, summary)
+#     else:
+#         summary = check_output.main(args.submission_path)
+#         do_score(args.submission_path, summary)
 
 
-if __name__ == "__main__":
-    main(get_parser().parse_args())
+# if __name__ == "__main__":
+#     main(get_parser().parse_args())
+
+def main(run = "test"):
+    # label_list_wd = json.load(open(type+'_label_list.json'))
+    label_list_fname = run + "_label_list.json"
+    pred_list_fname = run + "_pred_list.json"
+    # print('load file : '+type+'_label_list.json'+' [OK]')
+    # pred_list_wd = json.load(open(type+'_pred_list.json'))
+    # print('load file : '+type+'_pred_list.json'+' [OK]')
+    eval_revdict(label_list_fname, pred_list_fname, "revdict")
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--type', type=str, default='test')
+    args = parser.parse_args()
+    main(args.type)
