@@ -128,7 +128,7 @@ def train(
         device,
         batch_size,
         spm_model_path=None,
-        epochs=100,
+        epochs=75, # 100
         learning_rate=1e-4,
         beta1=0.9,
         beta2=0.999,

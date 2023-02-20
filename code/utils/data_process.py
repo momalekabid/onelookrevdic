@@ -122,7 +122,7 @@ def add_bert_embedding_from_context(file, file_out, split, lang='en', key='bert'
             json.dump(items, f)
 
 
-def add_word2vec_embedding(file, file_out):
+def add_word2vec_embedding(file,file_out,split, lang = "en"):
     # Load Google's pre-trained Word2Vec model.
     model = gensim.models.KeyedVectors.load_word2vec_format(
         './data/GoogleNews-vectors-negative300.bin', binary=True)
@@ -143,6 +143,7 @@ def add_word2vec_embedding(file, file_out):
             except KeyError:
                 print('Key {} not present'.format(word))
                 missing_count += 1
+            item['id'] = lang + '.' + split + '.' + str(count + 1)
             count += 1
             if count % 1000 == 0: print("processed {} files".format(count))
 

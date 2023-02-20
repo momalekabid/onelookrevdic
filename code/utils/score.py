@@ -1,4 +1,6 @@
 # Adapted from https://github.com/TimotheeMickus/codwoe/blob/main/code/score.py
+# and also https://github.com/PinzhenChen/unifiedRevdicDefmod/blob/main/code/utils/score.py
+# Author: Malek Abid, 20 feb 2023
 
 import argparse
 import collections
@@ -25,123 +27,105 @@ import tqdm
 # import check_output
 
 
-def get_parser(parser=argparse.ArgumentParser(description="score a submission")):
-    parser.add_argument(
-        "submission_path",
-        type=pathlib.Path,
-        help="path to submission file to be scored, or to a directory of submissions to be scored",
-    )
-    parser.add_argument(
-        '-r', "--reference_files_dir",
-        type=pathlib.Path,
-        help="directory containing all reference files",
-        default=pathlib.Path("data"),
-    )
-    parser.add_argument(
-        "-o", "--output_file",
-        type=pathlib.Path,
-        help="default path to print output",
-        default=pathlib.Path("scores.txt"),
-    )
-    return parser
 
-def bleu(pred, target, smoothing_function=SmoothingFunction().method4):
-    return sentence_bleu([pred], target, smoothing_function=smoothing_function)
+# following are used to evaluate definition generation task
+# def bleu(pred, target, smoothing_function=SmoothingFunction().method4):
+#     return sentence_bleu([pred], target, smoothing_function=smoothing_function)
 
 
-def mover_corpus_score(sys_stream, ref_streams, trace=0):
-    """Adapted from the MoverScore github"""
+# def mover_corpus_score(sys_stream, ref_streams, trace=0):
+#     """Adapted from the MoverScore github"""
 
-    if isinstance(sys_stream, str):
-        sys_stream = [sys_stream]
-    if isinstance(ref_streams, str):
-        ref_streams = [[ref_streams]]
-    fhs = [sys_stream] + ref_streams
-    corpus_score = 0
-    pbar = tqdm.tqdm(desc="MvSc.", disable=None, total=len(sys_stream))
-    for lines in itertools.zip_longest(*fhs):
-        if None in lines:
-            raise EOFError("Source and reference streams have different lengths!")
-        hypo, *refs = lines
-        idf_dict_hyp = collections.defaultdict(lambda: 1.0)
-        idf_dict_ref = collections.defaultdict(lambda: 1.0)
-        corpus_score += mv_sc.word_mover_score(
-            refs,
-            [hypo],
-            idf_dict_ref,
-            idf_dict_hyp,
-            stop_words=[],
-            n_gram=1,
-            remove_subwords=False,
-        )[0]
-        pbar.update()
-    pbar.close()
-    corpus_score /= len(sys_stream)
-    return corpus_score
+#     if isinstance(sys_stream, str):
+#         sys_stream = [sys_stream]
+#     if isinstance(ref_streams, str):
+#         ref_streams = [[ref_streams]]
+#     fhs = [sys_stream] + ref_streams
+#     corpus_score = 0
+#     pbar = tqdm.tqdm(desc="MvSc.", disable=None, total=len(sys_stream))
+#     for lines in itertools.zip_longest(*fhs):
+#         if None in lines:
+#             raise EOFError("Source and reference streams have different lengths!")
+#         hypo, *refs = lines
+#         idf_dict_hyp = collections.defaultdict(lambda: 1.0)
+#         idf_dict_ref = collections.defaultdict(lambda: 1.0)
+#         corpus_score += mv_sc.word_mover_score(
+#             refs,
+#             [hypo],
+#             idf_dict_ref,
+#             idf_dict_hyp,
+#             stop_words=[],
+#             n_gram=1,
+#             remove_subwords=False,
+#         )[0]
+#         pbar.update()
+#     pbar.close()
+#     corpus_score /= len(sys_stream)
+#     return corpus_score
 
 
-def eval_defmod(args, summary):
-    # 1. read contents
-    ## define accumulators for lemma-level BLEU and MoverScore
-    reference_lemma_groups = collections.defaultdict(list)
-    all_preds, all_tgts = [], []
-    ## reading data files
-    with open(args.submission_file, "r") as fp:
-        submission = sorted(json.load(fp), key=lambda r: r["id"])
-    with open(args.reference_file, "r") as fp:
-        reference = sorted(json.load(fp), key=lambda r: r["id"])
+# def eval_defmod(args, summary):
+#     # 1. read contents
+#     ## define accumulators for lemma-level BLEU and MoverScore
+#     reference_lemma_groups = collections.defaultdict(list)
+#     all_preds, all_tgts = [], []
+#     ## reading data files
+#     with open(args.submission_file, "r") as fp:
+#         submission = sorted(json.load(fp), key=lambda r: r["id"])
+#     with open(args.reference_file, "r") as fp:
+#         reference = sorted(json.load(fp), key=lambda r: r["id"])
 
-    # 2. compute scores
-    ## compute sense-level BLEU
-    assert len(submission) == len(reference), "Missing items in submission!"
-    id_to_lemma = {}
-    pbar = tqdm.tqdm(total=len(submission), desc="S-BLEU", disable=None)
-    for sub, ref in zip(submission, reference):
-        assert sub["id"] == ref["id"], "Mismatch in submission and reference files!"
-        all_preds.append(sub["gloss"])
-        all_tgts.append(ref["gloss"])
-        sub["gloss"] = tokenize(sub["gloss"])
-        ref["gloss"] = tokenize(ref["gloss"])
-        sub["sense-BLEU"] = bleu(sub["gloss"], ref["gloss"])
-        reference_lemma_groups[(ref["word"], ref["pos"])].append(ref["gloss"])
-        id_to_lemma[sub["id"]] = (ref["word"], ref["pos"])
-        pbar.update()
-    pbar.close()
-    ## compute lemma-level BLEU
-    for sub in tqdm.tqdm(submission, desc="L-BLEU", disable=None):
-        sub["lemma-BLEU"] = max(
-            bleu(sub["gloss"], g)
-            for g in reference_lemma_groups[id_to_lemma[sub["id"]]]
-        )
-    lemma_bleu_average = sum(s["lemma-BLEU"] for s in submission) / len(submission)
-    sense_bleu_average = sum(s["sense-BLEU"] for s in submission) / len(submission)
-    ## compute MoverScore
-    moverscore_average = np.mean(mv_sc.word_mover_score(
-        all_tgts,
-        all_preds,
-        collections.defaultdict(lambda:1.),
-        collections.defaultdict(lambda:1.),
-        stop_words=[],
-        n_gram=1,
-        remove_subwords=False,
-        batch_size=1,
-    ))
-    moverscore_average = mover_corpus_score(all_preds, [all_tgts])
-    # 3. write results.
-    logger.debug(f"Submission {args.submission_file}, \n\tMvSc.: " + \
-        f"{moverscore_average}\n\tL-BLEU: {lemma_bleu_average}\n\tS-BLEU: " + \
-        f"{sense_bleu_average}"
-    )
-    with open(args.output_file, "a") as ostr:
-        print(f"MoverScore_{summary.lang}:{moverscore_average}", file=ostr)
-        print(f"BLEU_lemma_{summary.lang}:{lemma_bleu_average}", file=ostr)
-        print(f"BLEU_sense_{summary.lang}:{sense_bleu_average}", file=ostr)
-    return (
-        args.submission_file,
-        moverscore_average,
-        lemma_bleu_average,
-        sense_bleu_average,
-    )
+#     # 2. compute scores
+#     ## compute sense-level BLEU
+#     assert len(submission) == len(reference), "Missing items in submission!"
+#     id_to_lemma = {}
+#     pbar = tqdm.tqdm(total=len(submission), desc="S-BLEU", disable=None)
+#     for sub, ref in zip(submission, reference):
+#         assert sub["id"] == ref["id"], "Mismatch in submission and reference files!"
+#         all_preds.append(sub["gloss"])
+#         all_tgts.append(ref["gloss"])
+#         sub["gloss"] = tokenize(sub["gloss"])
+#         ref["gloss"] = tokenize(ref["gloss"])
+#         sub["sense-BLEU"] = bleu(sub["gloss"], ref["gloss"])
+#         reference_lemma_groups[(ref["word"], ref["pos"])].append(ref["gloss"])
+#         id_to_lemma[sub["id"]] = (ref["word"], ref["pos"])
+#         pbar.update()
+#     pbar.close()
+#     ## compute lemma-level BLEU
+#     for sub in tqdm.tqdm(submission, desc="L-BLEU", disable=None):
+#         sub["lemma-BLEU"] = max(
+#             bleu(sub["gloss"], g)
+#             for g in reference_lemma_groups[id_to_lemma[sub["id"]]]
+#         )
+#     lemma_bleu_average = sum(s["lemma-BLEU"] for s in submission) / len(submission)
+#     sense_bleu_average = sum(s["sense-BLEU"] for s in submission) / len(submission)
+#     ## compute MoverScore
+#     moverscore_average = np.mean(mv_sc.word_mover_score(
+#         all_tgts,
+#         all_preds,
+#         collections.defaultdict(lambda:1.),
+#         collections.defaultdict(lambda:1.),
+#         stop_words=[],
+#         n_gram=1,
+#         remove_subwords=False,
+#         batch_size=1,
+#     ))
+#     moverscore_average = mover_corpus_score(all_preds, [all_tgts])
+#     # 3. write results.
+#     logger.debug(f"Submission {args.submission_file}, \n\tMvSc.: " + \
+#         f"{moverscore_average}\n\tL-BLEU: {lemma_bleu_average}\n\tS-BLEU: " + \
+#         f"{sense_bleu_average}"
+#     )
+#     with open(args.output_file, "a") as ostr:
+#         print(f"MoverScore_{summary.lang}:{moverscore_average}", file=ostr)
+#         print(f"BLEU_lemma_{summary.lang}:{lemma_bleu_average}", file=ostr)
+#         print(f"BLEU_sense_{summary.lang}:{sense_bleu_average}", file=ostr)
+#     return (
+#         args.submission_file,
+#         moverscore_average,
+#         lemma_bleu_average,
+#         sense_bleu_average,
+#     )
 
 
 def rank_cosine_codwoe(preds, targets): # for CODWOE; the lower the better
@@ -243,52 +227,15 @@ def eval_revdict(fsubmission, freference, summary = None):
     )
 
 
-# def main(args):
-#     def do_score(submission_file, summary):
-#         args.submission_file = submission_file
-#         args.reference_file = (
-#             args.reference_files_dir # subject to change
-#             / f"{summary.lang}.trial.{summary.track}.json"
-#             # / f"{summary.lang}.test.{summary.track}.json"
-#             # / f"{summary.lang}.test.{summary.track}.complete.json"
-#         )
-#         eval_func = eval_revdict if summary.track == "revdict" else eval_defmod
-#         eval_func(args, summary)
-
-#     if args.output_file.is_dir():
-#         args.output_file = args.output_file / "scores.txt"
-#     # wipe file if exists
-#     open(args.output_file, "w").close()
-#     if args.submission_path.is_dir():
-#         files = list(args.submission_path.glob("*.json"))
-#         assert len(files) >= 1, "No data to score!"
-#         summaries = [check_output.main(f) for f in files]
-#         assert len(set(summaries)) == len(files), "Ensure files map to unique setups."
-#         rd_cfg = [
-#             (s.lang, a) for s in summaries if s.track == "revdict" for a in s.vec_archs
-#         ]
-#         assert len(set(rd_cfg)) == len(rd_cfg), "Ensure files map to unique setups."
-#         for summary, submitted_file in zip(summaries, files):
-#             do_score(submitted_file, summary)
-#     else:
-#         summary = check_output.main(args.submission_path)
-#         do_score(args.submission_path, summary)
-
-
-# if __name__ == "__main__":
-#     main(get_parser().parse_args())
-
-def main(run = "test"):
-    # label_list_wd = json.load(open(type+'_label_list.json'))
-    label_list_fname = run + "_label_list.json"
-    pred_list_fname = run + "_pred_list.json"
-    # print('load file : '+type+'_label_list.json'+' [OK]')
-    # pred_list_wd = json.load(open(type+'_pred_list.json'))
-    # print('load file : '+type+'_pred_list.json'+' [OK]')
+def main(run, dir = "../../test/",):
+    label_list_fname = dir + run + "_label_list.json"
+    pred_list_fname = dir + run + "_pred_list.json"
+    print('load file : f"{label_list_fname}"\n')
+    print('load file : f"{pred_list_fname}"\n')
     eval_revdict(label_list_fname, pred_list_fname, "revdict")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--type', type=str, default='test')
+    parser.add_argument('-t', '--type', type=str, default='unseen')
     args = parser.parse_args()
     main(args.type)
