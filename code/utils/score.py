@@ -207,8 +207,8 @@ def eval_revdict(fsubmission, freference, summary = None):
     # 3. display results
     logger.debug(f"Submission {fsubmission}, \n\tMSE: " + \
         ", ".join(f"{a}={MSE_scores[a]}" for a in vec_archs) + \
-        ", \n\tcosine: " + \
-        ", ".join(f"{a}={cos_scores[a]}" for a in vec_archs) + \
+        # ", \n\tcosine: " + \
+        # ", ".join(f"{a}={cos_scores[a]}" for a in vec_archs) + \
         ", \n\tcosine ranks: " + \
         ", ".join(f"{a}={rnk_scores[a]}" for a in vec_archs) + \
         "."
