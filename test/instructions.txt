@@ -1,5 +1,0 @@
-To eval:
-Generate predictions using --pred on the model
-put the ground truth file used to generate the predictions/compare as ?_label_list.json, where ? is the testing split
-Same for pred file, except ?_pred_list.json
-Then, run score.py with the -t flag set to your testing split/file prefix.
