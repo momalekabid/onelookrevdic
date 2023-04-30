@@ -185,6 +185,7 @@ def add_fasttext_embedding(file, file_out):
             except KeyError:
                 print('Key {} not present'.format(word))
                 missing_count += 1
+            item['id'] = "en" + '.' + str(count + 1)
             count += 1
             if count % 1000 == 0: print("processed {} files".format(count))
 

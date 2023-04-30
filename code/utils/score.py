@@ -226,16 +226,19 @@ def eval_revdict(fsubmission, freference, summary = None):
         *[cos_scores.get(a, None) for a in vec_archs],
     )
 
-
-def main(run, dir = "../../test/",):
-    label_list_fname = dir + run + "_label_list.json"
-    pred_list_fname = dir + run + "_pred_list.json"
-    print('load file : f"{label_list_fname}"\n')
-    print('load file : f"{pred_list_fname}"\n')
+    # example pred fnames: cosunifiedw2v_unseen.json  revdictw2v_unseen.json
+def main(split, embedding, loss, model, dir = "../../test/"):
+    pred_list_fname = dir + f"{embedding}preds/{loss}{model}{embedding}_{split}.json"
+    label_list_fname = f"../../data/wwdata/{split}_{embedding}.json"
+    print(f"{label_list_fname}\n")
+    print(f"{pred_list_fname}\n")
     eval_revdict(label_list_fname, pred_list_fname, "revdict")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--type', type=str, default='unseen')
+    parser.add_argument('-s', '--split', type=str, default='unseen')
+    parser.add_argument('-e', '--embedding', type=str, default='w2v')
+    parser.add_argument('-l', '--loss', type=str, default = '')
+    parser.add_argument('-m', '--model', type=str, default = 'unified')
     args = parser.parse_args()
-    main(args.type)
+    main(args.split, args.embedding, args.loss, args.model)

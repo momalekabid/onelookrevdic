@@ -42,5 +42,6 @@ def process_data(ftype):
         print("Some errors^")
     print("Complete.")
 
-#process_data(file_types[0]) #train
-process_data(file_types[1]) #dev
+# process_data(file_types[0]) #train
+# process_data(file_types[1]) #dev
+process_data(file_types[3]) # unseen
