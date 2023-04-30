@@ -36,8 +36,6 @@ def process_data(ftype):
     filter_hill_data(file, out_file)
     print("Duplicates cleaned successfully")
 
-#     file = f"./data/wwdata/{ftype}_w2v.json"
-#     out_file  = f"./data/wwdata/{ftype}_label_list.json"
     try:
         check_data(out_file)
     except:
