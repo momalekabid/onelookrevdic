@@ -226,8 +226,11 @@ def eval_revdict(fsubmission, freference, summary = None):
         *[cos_scores.get(a, None) for a in vec_archs],
     )
 
-    # example pred fnames: cosunifiedw2v_unseen.json  revdictw2v_unseen.json
+
 def main(split, embedding, loss, model, dir = "../../test/"):
+    # prediction json filenames should follow regex format:
+    #     r"{cos}*{unified|revdict}{w2v|ft}_{split}{.json} e.g cosunifiedw2v_unseen.json, revdictw2v_unseen.json, etc.
+    #     (as mse is default, no need to specify, hence the * after {cos}
     pred_list_fname = dir + f"{embedding}preds/{loss}{model}{embedding}_{split}.json"
     label_list_fname = f"../../data/wwdata/{split}_{embedding}.json"
     print(f"{label_list_fname}\n")
